@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTG Standard Similar Card Finder</title>
+    <style>
+        /* ═══════════════════════════════════════════════════════════════════════
+           Scryfall Similarity Explorer — Styles
+           Premium dark theme with MTG color accents
+           ═══════════════════════════════════════════════════════════════════════ */
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        /* ── CSS Variables ──────────────────────────────────────────────────── */
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #0f172a;
+            --bg-glass: rgba(15, 23, 42, 0.75);
+            --border-glass: rgba(99, 102, 241, 0.15);
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --accent: #818cf8;
+            --accent-glow: rgba(129, 140, 248, 0.25);
+            --success: #10b981;
+        }
+
+        /* ── Base Reset ─────────────────────────────────────────────────────── */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .app {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+        }
+
+        /* ── Sidebar ────────────────────────────────────────────────────────── */
+        .sidebar {
+            width: 340px;
+            min-width: 340px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-right: 1px solid var(--border-glass);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            padding: 32px 24px 20px;
+        }
+
+        .sidebar-header h1 {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--accent), #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .sidebar-header p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        .filter-section {
+            padding: 20px 24px;
+            position: relative;
+        }
+
+        .filter-section h3 {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border-glass);
+            background: rgba(15, 23, 42, 0.6);
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px var(--accent-glow);
+        }
+
+        .autocomplete-results {
+            position: absolute;
+            top: 100%;
+            left: 24px;
+            right: 24px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            margin-top: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .autocomplete-item {
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .autocomplete-item:hover,
+        .autocomplete-item.active {
+            background: rgba(99, 102, 241, 0.25);
+            border-left: 3px solid var(--accent);
+        }
+
+        .autocomplete-item img {
+            width: 32px;
+            height: 44px;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+
+        .autocomplete-item span {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .set-name-small {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+
+        .stats {
+            padding: 0 24px 20px;
+        }
+
+        .stat-box {
+            background: rgba(129, 140, 248, 0.05);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        .word-list {
+            padding: 20px 24px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .word-list h3 {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .word-tag {
+            display: inline-block;
+            padding: 6px 12px;
+            margin: 3px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        .word-tag:hover {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+        .example-cards {
+            margin: 0 24px 20px;
+            padding: 16px;
+            background: rgba(129, 140, 248, 0.05);
+            border-radius: 12px;
+            border: 1px solid var(--border-glass);
+        }
+
+        .example-cards p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .example-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .example-tag {
+            padding: 6px 12px;
+            background: rgba(129, 140, 248, 0.1);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            font-size: 11px;
+            color: var(--accent);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .example-tag:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .progress-bar {
+            margin: 10px 24px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* ── Main Content ───────────────────────────────────────────────────── */
+        .main-content {
+            flex: 1;
+            height: 100vh;
+            overflow-y: auto;
+            background: var(--bg-primary);
+            scroll-behavior: smooth;
+            padding-bottom: 60px;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading-overlay.hidden {
+            display: none;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(129, 140, 248, 0.1);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        .loading-text {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .loading-subtext {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .welcome-view {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .welcome-content h2 {
+            font-size: 32px;
+            margin: 20px 0 10px;
+        }
+
+        .welcome-content p {
+            color: var(--text-muted);
+        }
+
+        .welcome-icon {
+            font-size: 64px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* ── Card Hero ──────────────────────────────────────────────────────── */
+        .selected-card-section {
+            padding: 60px 40px 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .card-hero {
+            display: flex;
+            gap: 40px;
+            align-items: flex-start;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        .hero-art {
+            width: 250px;
+            border-radius: 14px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .hero-details {
+            flex: 1;
+            padding-top: 20px;
+        }
+
+        .hero-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--accent);
+            letter-spacing: 0.15em;
+            font-weight: 700;
+        }
+
+        .hero-name {
+            font-size: 42px;
+            font-weight: 800;
+            margin: 8px 0;
+            letter-spacing: -0.03em;
+        }
+
+        .hero-type {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .hero-meta {
+            display: flex;
+            gap: 12px;
+            margin: 12px 0;
+            font-size: 14px;
+        }
+
+        .mana-cost {
+            padding: 4px 10px;
+            background: rgba(129, 140, 248, 0.15);
+            border-radius: 6px;
+            color: var(--accent);
+        }
+
+        .set-name {
+            padding: 4px 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            color: var(--text-secondary);
+        }
+
+        .hero-text {
+            font-size: 15px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            font-style: italic;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid var(--accent);
+        }
+
+        /* ── Similarity List ────────────────────────────────────────────────── */
+        .similarity-section {
+            background: rgba(15, 23, 42, 0.4);
+            padding: 60px 40px;
+        }
+
+        .similarity-section h2 {
+            max-width: 1000px;
+            margin: 0 auto 32px;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .similarity-list {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .similarity-card {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            padding: 16px 24px;
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            transition: all 0.3s;
+            animation: slideIn 0.5s ease-out both;
+        }
+
+        .similarity-card:hover {
+            background: rgba(30, 41, 59, 0.7);
+            transform: translateX(10px);
+            border-color: var(--accent);
+        }
+
+        .sim-rank {
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--text-muted);
+            width: 30px;
+        }
+
+        .sim-art {
+            width: 50px;
+            height: 70px;
+            border-radius: 6px;
+            object-fit: cover;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sim-info {
+            flex: 1;
+        }
+
+        .sim-name {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .sim-type {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .sim-reason {
+            font-size: 11px;
+        }
+
+        .shared-token {
+            display: inline-block;
+            padding: 2px 8px;
+            background: rgba(129, 140, 248, 0.15);
+            color: var(--accent);
+            border-radius: 4px;
+            margin-right: 4px;
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+
+        .sim-view-btn {
+            padding: 8px 16px;
+            background: transparent;
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sim-view-btn:hover {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        /* ── Tooltip Preview ─────────────────────────────────────────────────── */
+        .tooltip {
+            position: fixed;
+            pointer-events: none;
+            background: transparent;
+            width: 320px;
+            height: auto;
+            opacity: 0;
+            transform: scale(0.9);
+            transition: opacity 0.15s, transform 0.15s;
+            z-index: 10000;
+            filter: drop-shadow(0 20px 50px rgba(0, 0, 0, 0.8));
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .tooltip-img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>MTG Standard Similarity</h1>
+                <p>Find the most similar cards in Standard</p>
+            </div>
+
+            <div class="filter-section">
+                <h3>Search for a Card</h3>
+                <input type="text" id="cardSearch" class="search-input" placeholder="Enter card name..." autocomplete="off">
+                <div id="autocompleteResults" class="autocomplete-results"></div>
+            </div>
+
+            <div class="example-cards">
+                <p>Try these:</p>
+                <div class="example-tags">
+                    <span class="example-tag" onclick="searchExample('Llanowar Elves')">Llanowar Elves</span>
+                    <span class="example-tag" onclick="searchExample('Badgermole Cub')">Badgermole Cub</span>
+                    <span class="example-tag" onclick="searchExample('Mockingbird')">Mockingbird</span>
+                    <span class="example-tag" onclick="searchExample('Nature\'s Rhythm')">Nature's Rhythm</span>
+                    <span class="example-tag" onclick="searchExample('Ouroboroid')">Ouroboroid</span>
+                </div>
+            </div>
+
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="stat-number" id="statNodes">0</div>
+                    <div class="stat-label">Standard Cards</div>
+                </div>
+            </div>
+
+            <div class="word-list" id="wordList">
+                <h3>Common Keywords</h3>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="loading-overlay" id="loading">
+                <div class="spinner"></div>
+                <div class="loading-text" id="loadingText">Loading Standard cards from Scryfall...</div>
+                <div class="loading-subtext" id="loadingSubtext">Fetching page 1 of many...</div>
+            </div>
+
+            <div id="explorerView" class="explorer-view hidden">
+                <section class="selected-card-section">
+                    <div id="primaryCard" class="primary-card-container"></div>
+                </section>
+
+                <section class="similarity-section">
+                    <h2>Similar Cards</h2>
+                    <div id="similarityList" class="similarity-list"></div>
+                </section>
+            </div>
+
+            <div id="welcomeView" class="welcome-view">
+                <div class="welcome-content">
+                    <div class="welcome-icon">🔍</div>
+                    <h2>Search for a card to begin</h2>
+                    <p>Enter a card name in the search bar to find similar Standard-legal cards</p>
+                </div>
+            </div>
+
+            <div id="tooltip" class="tooltip"></div>
+        </main>
+    </div>
+
+    <script>
+        // State
+        let allCards = [];
+        let activeAutocompleteIdx = -1;
+
+        // DOM Elements
+        const cardSearchEl = document.getElementById('cardSearch');
+        const autocompleteEl = document.getElementById('autocompleteResults');
+        const loadingEl = document.getElementById('loading');
+        const loadingText = document.getElementById('loadingText');
+        const loadingSubtext = document.getElementById('loadingSubtext');
+        const progressFill = document.getElementById('progressFill');
+        const explorerView = document.getElementById('explorerView');
+        const welcomeView = document.getElementById('welcomeView');
+        const primaryCardEl = document.getElementById('primaryCard');
+        const similarityListEl = document.getElementById('similarityList');
+        const statNodes = document.getElementById('statNodes');
+        const wordListEl = document.getElementById('wordList');
+        const tooltipEl = document.getElementById('tooltip');
+
+        // Stop words for tokenization
+        const stopWords = new Set([
+            'the', 'and', 'for', 'with', 'that', 'this', 'from', 'your', 'you', 
+            'its', 'has', 'have', 'was', 'are', 'not', 'but', 'all', 'any', 
+            'each', 'their', 'they', 'them', 'can', 'cannot', 'may', 'must',
+            'target', 'until', 'end', 'turn', 'when', 'whenever', 'would',
+            'could', 'should', 'then', 'than', 'into', 'onto', 'upon'
+        ]);
+
+        // Initialize - fetch all Standard cards
+        async function init() {
+            try {
+                loadingEl.classList.remove('hidden');
+                allCards = [];
+                
+                let page = 1;
+                let hasMore = true;
+                let totalCards = 0;
+                
+                while (hasMore) {
+                    loadingText.textContent = `Loading Standard cards...`;
+                    loadingSubtext.textContent = `Fetching page ${page}...`;
+                    
+                    const response = await fetch(`https://api.scryfall.com/cards/search?q=format%3Astandard&unique=cards&page=${page}`);
+                    const data = await response.json();
+                    
+                    if (data.data && data.data.length > 0) {
+                        const processedCards = data.data.map((card, index) => {
+                            // Handle double-faced cards
+                            const cardFace = card.card_faces ? card.card_faces[0] : card;
+                            
+                            return {
+                                id: allCards.length + index,
+                                name: card.name,
+                                type_line: card.type_line || cardFace.type_line || '',
+                                oracle_text: card.oracle_text || cardFace.oracle_text || '',
+                                mana_cost: card.mana_cost || cardFace.mana_cost || '',
+                                cmc: card.cmc || 0,
+                                colors: card.colors || card.color_identity || [],
+                                set_name: card.set_name || '',
+                                image_small: card.image_uris?.small || cardFace.image_uris?.small || 'https://c1.scryfall.com/file/scryfall-cards/art_crop/front/placeholder.jpg',
+                                image_uri: card.image_uris?.normal || cardFace.image_uris?.normal || 'https://c1.scryfall.com/file/scryfall-cards/art_crop/front/placeholder.jpg',
+                                rarity: card.rarity || '',
+                                tokens: extractKeywords(card, cardFace)
+                            };
+                        });
+                        
+                        allCards = [...allCards, ...processedCards];
+                        totalCards = data.total_cards || allCards.length;
+                        
+                        // Update progress
+                        const progress = (allCards.length / totalCards) * 100;
+                        progressFill.style.width = `${progress}%`;
+                        statNodes.textContent = allCards.length;
+                        
+                        page++;
+                        hasMore = data.has_more || false;
+                    } else {
+                        hasMore = false;
+                    }
+                }
+                
+                statNodes.textContent = allCards.length;
+                buildWordIndex();
+                loadingEl.classList.add('hidden');
+                
+            } catch (error) {
+                console.error('Error loading cards:', error);
+                loadingEl.innerHTML = `
+                    <div class="loading-text">Error loading cards. Please refresh.</div>
+                    <div class="loading-subtext">${error.message}</div>
+                `;
+            }
+        }
+
+        function extractKeywords(card, face) {
+            // Combine all text sources
+            const name = card.name.toLowerCase();
+            const typeLine = (card.type_line || face.type_line || '').toLowerCase();
+            const oracleText = (card.oracle_text || face.oracle_text || '').toLowerCase();
+            
+            // Extract keywords from oracle text (often in italics or keywords)
+            const keywordMatches = oracleText.match(/\b(first strike|double strike|trample|haste|deathtouch|vigilance|lifelink|reach|flying|menace|fear|intimidate|shroud|hexproof|indestructible|defender|flash|prowess|ward)\b/g) || [];
+            
+            // Split into words
+            const allWords = (name + ' ' + typeLine + ' ' + oracleText)
+                .split(/[^a-z0-9']+/)
+                .filter(w => w.length > 2 && w.length < 20 && !stopWords.has(w) && !/^\d+$/.test(w))
+                .map(w => w.replace(/'s$|'t$|'re$|'ve$|'ll$|'d$/, ''));
+            
+            // Add keywords separately
+            const keywords = keywordMatches.map(k => k.replace(/\s+/g, ''));
+            
+            return [...new Set([...allWords, ...keywords])];
+        }
+
+        function buildWordIndex() {
+            const wordCounts = {};
+            const wordToCards = {};
+
+            allCards.forEach(card => {
+                card.tokens.forEach(word => {
+                    if (!wordToCards[word]) wordToCards[word] = [];
+                    wordToCards[word].push(card.id);
+                });
+            });
+
+            // Show top words
+            const sortedWords = Object.entries(wordToCards)
+                .sort((a, b) => b[1].length - a[1].length)
+                .filter(([word, ids]) => ids.length > 5 && ids.length < 200)
+                .slice(0, 40);
+
+            wordListEl.innerHTML = '<h3>Common Keywords</h3>';
+            sortedWords.forEach(([word, ids]) => {
+                const tag = document.createElement('span');
+                tag.className = 'word-tag';
+                tag.textContent = word;
+                tag.onclick = () => {
+                    const randomId = ids[Math.floor(Math.random() * ids.length)];
+                    selectCard(allCards[randomId]);
+                };
+                wordListEl.appendChild(tag);
+            });
+        }
+
+        // Search
+        cardSearchEl.addEventListener('input', () => {
+            const query = cardSearchEl.value.trim().toLowerCase();
+            if (query.length < 2) {
+                autocompleteEl.innerHTML = '';
+                return;
+            }
+
+            const matches = allCards
+                .filter(card => card.name.toLowerCase().includes(query))
+                .sort((a, b) => {
+                    const aName = a.name.toLowerCase();
+                    const bName = b.name.toLowerCase();
+                    
+                    // Exact match first
+                    if (aName === query) return -1;
+                    if (bName === query) return 1;
+                    
+                    // Starts with query next
+                    if (aName.startsWith(query) && !bName.startsWith(query)) return -1;
+                    if (!aName.startsWith(query) && bName.startsWith(query)) return 1;
+                    
+                    // Contains query next
+                    if (aName.includes(query) && !bName.includes(query)) return -1;
+                    if (!aName.includes(query) && bName.includes(query)) return 1;
+                    
+                    // Then by length
+                    return a.name.length - b.name.length;
+                })
+                .slice(0, 8);
+
+            autocompleteEl.innerHTML = matches.map((card, i) => `
+                <div class="autocomplete-item" data-name="${card.name.replace(/"/g, '&quot;')}" data-idx="${i}">
+                    <img src="${card.image_small}" alt="" onerror="this.src='https://c1.scryfall.com/file/scryfall-cards/art_crop/front/placeholder.jpg'">
+                    <span>${card.name}</span>
+                    <span class="set-name-small">${card.set_name}</span>
+                </div>
+            `).join('');
+        });
+
+        cardSearchEl.addEventListener('keydown', (e) => {
+            const items = autocompleteEl.querySelectorAll('.autocomplete-item');
+            
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (items.length > 0) {
+                    if (activeAutocompleteIdx >= 0) {
+                        items[activeAutocompleteIdx].click();
+                    } else {
+                        items[0].click();
+                    }
+                } else {
+                    const query = cardSearchEl.value.trim();
+                    if (query) searchCard(query);
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                activeAutocompleteIdx = (activeAutocompleteIdx + 1) % items.length;
+                updateActiveItem(items);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeAutocompleteIdx = (activeAutocompleteIdx - 1 + items.length) % items.length;
+                updateActiveItem(items);
+            }
+        });
+
+        function updateActiveItem(items) {
+            items.forEach((item, i) => {
+                item.classList.toggle('active', i === activeAutocompleteIdx);
+            });
+        }
+
+        autocompleteEl.addEventListener('click', (e) => {
+            const item = e.target.closest('.autocomplete-item');
+            if (item) {
+                const cardName = item.dataset.name;
+                searchCard(cardName);
+                autocompleteEl.innerHTML = '';
+                cardSearchEl.value = '';
+            }
+        });
+
+        // Global function for example tags
+        window.searchExample = (cardName) => {
+            cardSearchEl.value = cardName;
+            searchCard(cardName);
+            autocompleteEl.innerHTML = '';
+        };
+
+        function searchCard(cardName) {
+            const card = allCards.find(c => c.name.toLowerCase() === cardName.toLowerCase());
+            if (card) {
+                selectCard(card);
+            } else {
+                alert(`Card "${cardName}" not found in Standard`);
+            }
+        }
+
+        function selectCard(primaryCard) {
+            welcomeView.classList.add('hidden');
+            explorerView.classList.remove('hidden');
+
+            // Display primary card
+            primaryCardEl.innerHTML = `
+                <div class="card-hero">
+                    <img class="hero-art" src="${primaryCard.image_uri}" alt="${primaryCard.name.replace(/"/g, '&quot;')}" onerror="this.src='https://c1.scryfall.com/file/scryfall-cards/art_crop/front/placeholder.jpg'">
+                    <div class="hero-details">
+                        <span class="hero-label">Exploring Similarity For</span>
+                        <h2 class="hero-name">${primaryCard.name}</h2>
+                        <div class="hero-type">${primaryCard.type_line}</div>
+                        <div class="hero-meta">
+                            <span class="mana-cost">${primaryCard.mana_cost || 'No mana cost'}</span>
+                            <span class="set-name">${primaryCard.set_name}</span>
+                        </div>
+                        <div class="hero-text">${primaryCard.oracle_text ? primaryCard.oracle_text.replace(/\n/g, '<br>') : 'No oracle text.'}</div>
+                    </div>
+                </div>
+            `;
+
+            // Find similar cards with improved scoring
+            const similarities = allCards
+                .filter(card => card.id !== primaryCard.id)
+                .map(card => {
+                    const primaryTokens = new Set(primaryCard.tokens);
+                    const cardTokens = new Set(card.tokens);
+                    
+                    // Find shared tokens
+                    const sharedTokens = [...primaryTokens].filter(token => cardTokens.has(token));
+                    
+                    // Calculate similarity score with weights
+                    let score = 0;
+                    
+                    // Token similarity (weighted by rarity)
+                    sharedTokens.forEach(token => {
+                        // Rarer tokens (appear in fewer cards) are worth more
+                        const rarity = primaryCard.tokens.filter(t => t === token).length;
+                        score += 10 / (rarity + 1);
+                    });
+                    
+                    // Color similarity
+                    const colorScore = calculateColorSimilarity(primaryCard.colors, card.colors);
+                    score += colorScore * 20;
+                    
+                    // Type similarity
+                    const primaryMainType = primaryCard.type_line.split(' ')[0];
+                    const cardMainType = card.type_line.split(' ')[0];
+                    if (primaryMainType === cardMainType) score += 15;
+                    
+                    // CMC similarity
+                    const cmcDiff = Math.abs(primaryCard.cmc - card.cmc);
+                    if (cmcDiff === 0) score += 15;
+                    else if (cmcDiff === 1) score += 8;
+                    else if (cmcDiff === 2) score += 3;
+                    
+                    return { 
+                        card, 
+                        score: Math.round(score * 10) / 10, 
+                        shared: sharedTokens.slice(0, 5) 
+                    };
+                })
+                .filter(s => s.score > 5)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 10);
+
+            // Display similar cards
+            if (similarities.length === 0) {
+                similarityListEl.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 40px;">No similar cards found</div>';
+            } else {
+                similarityListEl.innerHTML = similarities.map((s, i) => `
+                    <div class="similarity-card" 
+                         data-id="${s.card.id}" 
+                         data-name="${s.card.name.replace(/"/g, '&quot;')}"
+                         data-type="${s.card.type_line.replace(/"/g, '&quot;')}"
+                         data-text="${(s.card.oracle_text || '').replace(/"/g, '&quot;')}"
+                         data-img="${s.card.image_uri}"
+                         style="animation-delay: ${i * 0.05}s">
+                        <div class="sim-rank">#${i + 1}</div>
+                        <img class="sim-art" src="${s.card.image_small}" alt="" onerror="this.src='https://c1.scryfall.com/file/scryfall-cards/art_crop/front/placeholder.jpg'">
+                        <div class="sim-info">
+                            <div class="sim-name">${s.card.name}</div>
+                            <div class="sim-type">${s.card.type_line}</div>
+                            <div class="sim-reason">
+                                <strong>Score:</strong> ${s.score} • 
+                                ${s.shared.map(t => `<span class="shared-token">${t}</span>`).join(' ')}
+                            </div>
+                        </div>
+                        <button class="sim-view-btn" onclick="selectCard(allCards[${s.card.id}])">Explore</button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function calculateColorSimilarity(colors1, colors2) {
+            if (!colors1 || !colors2) return 0;
+            if (colors1.length === 0 && colors2.length === 0) return 1;
+            if (colors1.length === 0 || colors2.length === 0) return 0;
+            
+            const set1 = new Set(colors1);
+            const set2 = new Set(colors2);
+            const intersection = new Set([...set1].filter(x => set2.has(x)));
+            const union = new Set([...set1, ...set2]);
+            
+            return intersection.size / union.size;
+        }
+
+        // Tooltip logic
+        similarityListEl.addEventListener('mouseover', (e) => {
+            const card = e.target.closest('.similarity-card');
+            if (card && !e.target.classList.contains('sim-view-btn')) {
+                const img = card.dataset.img;
+                if (img && img !== 'https://c1.scryfall.com/file/scryfall-cards/art_crop/front/placeholder.jpg') {
+                    tooltipEl.innerHTML = `<img class="tooltip-img" src="${img}" alt="${card.dataset.name}">`;
+                    tooltipEl.classList.add('visible');
+                }
+            }
+        });
+
+        similarityListEl.addEventListener('mousemove', (e) => {
+            if (tooltipEl.classList.contains('visible')) {
+                const vpW = window.innerWidth;
+                const vpH = window.innerHeight;
+                const padding = 24;
+                const tw = 320;
+                const th = 440;
+
+                let x = e.clientX + 25;
+                let y = e.clientY - (th / 2);
+
+                if (x + tw + padding > vpW) {
+                    x = e.clientX - tw - 25;
+                }
+                if (y + th + padding > vpH) {
+                    y = vpH - th - padding;
+                }
+                if (y < padding) {
+                    y = padding;
+                }
+
+                tooltipEl.style.left = x + 'px';
+                tooltipEl.style.top = y + 'px';
+            }
+        });
+
+        similarityListEl.addEventListener('mouseout', (e) => {
+            if (e.target.closest('.similarity-card')) {
+                tooltipEl.classList.remove('visible');
+            }
+        });
+
+        // Start
+        init();
+    </script>
+</body>
+</html>
